@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Journal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0f14;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh}
+.app{min-height:100vh}
+.nav{background:#12151e;border-bottom:1px solid #1e2536;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.nav-brand{font-size:15px;font-weight:500;color:#e2e8f0;display:flex;align-items:center;gap:8px}
+.brand-dot{width:8px;height:8px;border-radius:50%;background:#22c55e}
+.nav-tabs{display:flex;gap:4px}
+.tab-btn{padding:6px 14px;border-radius:6px;border:none;font-size:13px;cursor:pointer;background:transparent;color:#64748b;font-family:inherit;transition:all 0.15s}
+.tab-btn.active{background:#1a2540;color:#60a5fa;border:1px solid #1e3a6e}
+.tab-btn:hover:not(.active){color:#94a3b8;background:#1a1f2e}
+.content{padding:20px 24px;max-width:1400px;margin:0 auto}
+
+/* Stats grid */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.stats-grid{grid-template-columns:1fr}}
+.stat-card{background:#12151e;border:1px solid #1e2536;border-radius:14px;padding:18px 20px}
+.stat-label{font-size:12px;color:#4a5568;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.info-icon{width:14px;height:14px;border-radius:50%;border:1px solid #2a3550;display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:#4a5568;cursor:help;flex-shrink:0}
+.stat-main{font-size:26px;font-weight:500;color:#e2e8f0}
+.stat-main.green{color:#22c55e}
+.stat-main.red{color:#ef4444}
+.stat-main.muted{color:#64748b;font-size:16px;font-weight:400}
+.stat-sub{font-size:12px;color:#64748b}
+.card-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.gauge-wrap{flex-shrink:0}
+.avgwin-row{display:flex;gap:16px;margin-top:10px}
+.avgwin-item{display:flex;flex-direction:column;gap:2px}
+.avgwin-val{font-size:15px;font-weight:500}
+.avgwin-val.green{color:#22c55e}
+.avgwin-val.red{color:#ef4444}
+.avgwin-lbl{font-size:10px;color:#4a5568}
+.bar-container{width:140px;height:5px;border-radius:3px;background:#1e2536;overflow:hidden;margin-top:8px}
+.bar-fill{height:100%;background:#22c55e;border-radius:3px;transition:width 0.4s}
+.donut-labels{display:flex;flex-direction:column;gap:4px;flex:1}
+.donut-lbl{font-size:11px;display:flex;align-items:center;gap:5px}
+.donut-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* Sections */
+.section-card{background:#12151e;border:1px solid #1e2536;border-radius:14px;padding:16px;margin-bottom:16px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-size:13px;color:#64748b;font-weight:500}
+.add-btn{padding:6px 14px;background:#1a2d4a;color:#60a5fa;border:1px solid #1e3a6e;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;transition:all 0.15s}
+.add-btn:hover{background:#1e3558}
+
+/* Trade rows */
+.trade-row{display:grid;grid-template-columns:100px 1fr auto auto auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #1a1f2e;cursor:pointer;transition:background 0.1s}
+.trade-row:last-child{border-bottom:none}
+.trade-row:hover{background:#13171f;border-radius:6px;padding-left:6px;padding-right:6px}
+@media(max-width:600px){.trade-row{grid-template-columns:80px 1fr auto auto}}
+.t-date{font-size:11px;color:#4a5568}
+.t-instr{font-size:13px;font-weight:500;color:#e2e8f0}
+.t-sub{font-size:11px;color:#4a5568;margin-top:1px}
+.badge{padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+.badge.win{background:#0a2010;color:#22c55e;border:1px solid #14532d}
+.badge.loss{background:#1f0a0a;color:#ef4444;border:1px solid #7f1d1d}
+.badge.be{background:#1f1a09;color:#f59e0b;border:1px solid #78350f}
+.t-rr{font-size:12px;color:#94a3b8;text-align:right}
+.t-pnl{font-size:13px;font-weight:500;text-align:right;min-width:70px}
+.t-pnl.pos{color:#22c55e}
+.t-pnl.neg{color:#ef4444}
+.trade-detail{display:none;padding:10px 0 4px;border-bottom:1px solid #1a1f2e}
+.trade-detail.open{display:block}
+.detail-row{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:8px}
+.d-item label{font-size:10px;color:#4a5568;display:block;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.4px}
+.d-item span{font-size:12px;color:#cbd5e1}
+.d-notes{font-size:12px;color:#64748b;line-height:1.6;margin-top:6px;padding-top:8px;border-top:1px solid #1a1f2e}
+.d-img{width:100%;max-height:220px;object-fit:contain;border-radius:8px;margin-top:10px;border:1px solid #1e2536}
+.act-row{display:flex;gap:6px;margin-top:10px}
+.act-btn{padding:5px 12px;border-radius:6px;border:1px solid #1e2536;background:transparent;color:#4a5568;font-size:11px;cursor:pointer;font-family:inherit;transition:all 0.15s}
+.act-btn:hover{color:#94a3b8;background:#1a1f2e}
+.act-btn.del:hover{color:#ef4444;border-color:#7f1d1d;background:#1f0a0a}
+.empty-state{text-align:center;padding:36px;color:#4a5568;font-size:13px}
+
+/* Form */
+.form-heading{font-size:13px;color:#64748b;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #1e2536}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field.full{grid-column:1/-1}
+.field label{font-size:11px;color:#4a5568;text-transform:uppercase;letter-spacing:0.5px;font-weight:500}
+.field input,.field select,.field textarea{
+  background:#0d0f14;border:1px solid #1e2536;border-radius:8px;
+  color:#e2e8f0;font-size:13px;padding:8px 10px;width:100%;outline:none;font-family:inherit;transition:border 0.15s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#2563eb}
+.field select option{background:#12151e}
+.field textarea{resize:vertical;min-height:72px;line-height:1.5}
+.oc-group{display:flex;gap:6px}
+.oc-btn{flex:1;padding:9px 4px;border-radius:8px;border:1px solid #1e2536;background:#0d0f14;color:#4a5568;font-size:13px;cursor:pointer;text-align:center;transition:all 0.15s}
+.oc-btn:hover{border-color:#2a3550;color:#94a3b8}
+.oc-btn.win{border-color:#14532d;background:#0a2010;color:#22c55e}
+.oc-btn.loss{border-color:#7f1d1d;background:#1f0a0a;color:#ef4444}
+.oc-btn.be{border-color:#78350f;background:#1f1a09;color:#f59e0b}
+.upload-zone{border:1px dashed #1e2536;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#0d0f14;position:relative;transition:border 0.15s}
+.upload-zone:hover{border-color:#2563eb}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-lbl{font-size:12px;color:#4a5568;pointer-events:none}
+.preview-img{width:100%;max-height:140px;object-fit:contain;border-radius:6px;margin-top:10px;display:none;border:1px solid #1e2536}
+.btn-row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.btn{padding:8px 20px;border-radius:8px;border:none;font-size:13px;cursor:pointer;font-family:inherit;transition:all 0.15s}
+.btn-save{background:#2563eb;color:#fff}
+.btn-save:hover{background:#1d4ed8}
+.btn-cancel{background:transparent;color:#4a5568;border:1px solid #1e2536}
+.btn-cancel:hover{background:#1a1f2e;color:#94a3b8}
+
+/* Export/Import */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+.tool-btn{padding:5px 12px;background:#1a2030;border:1px solid #1e2536;color:#64748b;border-radius:7px;font-size:11px;cursor:pointer;font-family:inherit;transition:all 0.15s}
+.tool-btn:hover{color:#94a3b8;background:#1e2540}
+
+/* Calendar */
+.cal-monthly-pnl{font-size:14px;color:#94a3b8;text-align:center;margin-bottom:14px;font-weight:400}
+.cal-monthly-pnl .pnl-val{font-weight:500}
+.cal-monthly-pnl .pnl-val.green{color:#22c55e}
+.cal-monthly-pnl .pnl-val.red{color:#ef4444}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cal-nav{display:flex;align-items:center;gap:10px}
+.cal-nav-btn{background:#1a2030;border:1px solid #1e2536;color:#94a3b8;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-family:inherit;transition:all 0.15s;line-height:1}
+.cal-nav-btn:hover{background:#1e2a40;color:#e2e8f0}
+.cal-month-label{font-size:14px;font-weight:500;color:#e2e8f0;min-width:140px;text-align:center}
+.cal-today-btn{background:#1a2030;border:1px solid #1e2536;color:#94a3b8;border-radius:8px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:inherit;transition:all 0.15s}
+.cal-today-btn:hover{background:#1e2a40;color:#e2e8f0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr) 90px;border-left:1px solid #1e2536;border-top:1px solid #1e2536}
+.cal-dow{font-size:11px;color:#4a5568;text-align:center;padding:7px 0;border-right:1px solid #1e2536;border-bottom:1px solid #1e2536;background:#0d1018}
+.cal-dow.week-col{color:#2a3550;font-size:10px;letter-spacing:0.3px}
+.cal-cell{min-height:82px;border-right:1px solid #1e2536;border-bottom:1px solid #1e2536;padding:7px 8px;cursor:pointer;transition:background 0.1s}
+.cal-cell:hover:not(.week-summary){background:#141820}
+.cal-cell.week-summary{background:#0a0d12;cursor:default}
+.cal-cell.other-month .cal-day-num{color:#2a3040}
+.cal-cell.other-month .cal-pnl,.cal-cell.other-month .cal-count{opacity:0.3}
+.cal-cell.today-cell{outline:1.5px solid #2563eb;outline-offset:-1px}
+.cal-day-num{font-size:11px;color:#4a5568;margin-bottom:4px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+.cal-cell.today-cell .cal-day-num{background:#2563eb;color:#fff}
+.cal-cell.profit-cell{background:rgba(34,197,94,0.06)}
+.cal-cell.profit-cell.strong{background:rgba(34,197,94,0.16)}
+.cal-cell.loss-cell{background:rgba(239,68,68,0.06)}
+.cal-cell.loss-cell.strong{background:rgba(239,68,68,0.16)}
+.cal-pnl{font-size:12px;font-weight:500;margin-top:3px}
+.cal-pnl.green{color:#22c55e}
+.cal-pnl.red{color:#ef4444}
+.cal-count{font-size:10px;color:#4a5568;margin-top:2px}
+.week-label{font-size:10px;color:#3a4a60;margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:0.3px}
+.week-pnl{font-size:12px;font-weight:500}
+.week-pnl.green{color:#22c55e}
+.week-pnl.red{color:#ef4444}
+.week-pnl.zero{color:#3a4560}
+.week-trades{font-size:10px;color:#3a4560;margin-top:2px}
+@media(max-width:700px){
+  .cal-grid{grid-template-columns:repeat(7,1fr)}
+  .cal-dow.week-col,.cal-cell.week-summary{display:none}
+  .cal-cell{min-height:60px;padding:5px 4px}
+  .cal-pnl{font-size:10px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<nav class="nav">
+  <div class="nav-brand"><div class="brand-dot"></div>Trade Journal</div>
+  <div class="nav-tabs">
+    <button class="tab-btn active" id="nt-dash" onclick="showSection('dash')">Dashboard</button>
+    <button class="tab-btn" id="nt-log" onclick="showSection('log')">Trade Log</button>
+    <button class="tab-btn" id="nt-new" onclick="openNew()">+ New Trade</button>
+  </div>
+</nav>
+
+<div class="content">
+  <!-- Dashboard -->
+  <div id="sec-dash">
+    <div class="stats-grid" id="stats-grid"></div>
+    <div class="section-card">
+      <div class="section-header">
+        <span class="section-title">Recent trades</span>
+        <div class="toolbar">
+          <button class="tool-btn" onclick="exportJSON()">Export JSON</button>
+          <button class="tool-btn" onclick="document.getElementById('import-file').click()">Import JSON</button>
+          <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(this)">
+          <button class="add-btn" onclick="openNew()">+ Add trade</button>
+        </div>
+      </div>
+      <div id="recent-trades"></div>
+    </div>
+    <div class="section-card">
+      <div class="cal-monthly-pnl">Monthly P&L: <span class="pnl-val" id="monthly-pnl-val">$0.00</span></div>
+      <div class="cal-header">
+        <div class="cal-nav">
+          <button class="cal-nav-btn" onclick="changeMonth(-1)">&#8249;</button>
+          <div class="cal-month-label" id="cal-month-label"></div>
+          <button class="cal-nav-btn" onclick="changeMonth(1)">&#8250;</button>
+        </div>
+        <button class="cal-today-btn" onclick="goToday()">Today</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+  </div>
+
+  <!-- Trade Log -->
+  <div id="sec-log" style="display:none">
+    <div class="section-card">
+      <div class="section-header">
+        <span class="section-title">All trades</span>
+        <button class="add-btn" onclick="openNew()">+ Add trade</button>
+      </div>
+      <div id="all-trades"></div>
+    </div>
+  </div>
+
+  <!-- New / Edit Trade Form -->
+  <div id="sec-new" style="display:none">
+    <div class="section-card">
+      <div class="form-heading" id="fh">New trade entry</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="fd">
+        </div>
+        <div class="field">
+          <label>Instrument</label>
+          <input type="text" id="fi" placeholder="e.g. EURUSD, SPY, BTC">
+        </div>
+        <div class="field full">
+          <label>Outcome</label>
+          <div class="oc-group">
+            <div class="oc-btn" id="ob-win" onclick="setOC('win')">Win</div>
+            <div class="oc-btn" id="ob-loss" onclick="setOC('loss')">Loss</div>
+            <div class="oc-btn" id="ob-be" onclick="setOC('be')">Breakeven</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Risk:Reward (RR)</label>
+          <input type="number" id="frr" placeholder="e.g. 2.5" step="0.1" min="0">
+        </div>
+        <div class="field">
+          <label>Risk amount ($)</label>
+          <input type="number" id="frisk" placeholder="e.g. 100" step="0.01" min="0">
+        </div>
+        <div class="field">
+          <label>Profit / Loss ($)</label>
+          <input type="number" id="fpnl" placeholder="e.g. 250 or -100">
+        </div>
+        <div class="field full">
+          <label>Notes</label>
+          <textarea id="fnotes" placeholder="Describe your setup, entry reason, mistakes made..."></textarea>
+        </div>
+        <div class="field full">
+          <label>Trade Screenshot</label>
+          <div class="upload-zone">
+            <input type="file" accept="image/*" id="fimg" onchange="handleImg(this)">
+            <div class="upload-lbl" id="ulbl">Click or drag to upload a chart screenshot</div>
+            <img class="preview-img" id="ipreview" alt="preview">
+          </div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-cancel" onclick="cancelForm()">Cancel</button>
+        <button class="btn btn-save" onclick="saveTrade()">Save trade</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+let trades = JSON.parse(localStorage.getItem('tradejournal_v1') || '[]');
+let editId = null, oc = '', imgData = '';
+let gaugeChart = null, donutChart = null;
+let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
+
+/* ── Navigation ─────────────────────────────────────────── */
+function showSection(s) {
+  ['dash','log','new'].forEach(x => {
+    document.getElementById('sec-' + x).style.display = x === s ? 'block' : 'none';
+    const b = document.getElementById('nt-' + x);
+    if (b) b.classList.toggle('active', x === s);
+  });
+  if (s === 'dash') renderDash();
+  if (s === 'log') renderLog();
+}
+
+function openNew() { resetForm(); showSection('new'); document.getElementById('nt-new').classList.add('active'); }
+
+/* ── Form helpers ───────────────────────────────────────── */
+function setOC(o) {
+  oc = o;
+  ['win','loss','be'].forEach(x => document.getElementById('ob-' + x).className = 'oc-btn' + (x === o ? ' ' + x : ''));
+}
+
+function handleImg(inp) {
+  const f = inp.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    imgData = e.target.result;
+    const p = document.getElementById('ipreview');
+    p.src = imgData; p.style.display = 'block';
+    document.getElementById('ulbl').textContent = f.name;
+  };
+  r.readAsDataURL(f);
+}
+
+function resetForm() {
+  editId = null; oc = ''; imgData = '';
+  document.getElementById('fh').textContent = 'New trade entry';
+  ['d','i','rr','risk','pnl','notes'].forEach(x => { const el = document.getElementById('f' + x); if (el) el.value = ''; });
+  document.getElementById('fd').value = new Date().toISOString().split('T')[0];
+  ['win','loss','be'].forEach(x => document.getElementById('ob-' + x).className = 'oc-btn');
+  document.getElementById('ipreview').style.display = 'none';
+  document.getElementById('ulbl').textContent = 'Click or drag to upload a chart screenshot';
+  document.getElementById('fimg').value = '';
+}
+
+function cancelForm() { resetForm(); showSection('dash'); }
+
+function saveTrade() {
+  const date = document.getElementById('fd').value;
+  const instr = document.getElementById('fi').value.trim();
+  if (!date || !instr || !oc) { alert('Please fill in date, instrument, and outcome.'); return; }
+  const t = {
+    id: editId || Date.now().toString(),
+    date, instr, outcome: oc,
+    rr: parseFloat(document.getElementById('frr').value) || 0,
+    risk: parseFloat(document.getElementById('frisk').value) || 0,
+    pnl: parseFloat(document.getElementById('fpnl').value) || 0,
+    notes: document.getElementById('fnotes').value.trim(),
+    img: imgData
+  };
+  trades = editId ? trades.map(x => x.id === editId ? t : x) : [t, ...trades];
+  persist(); resetForm(); showSection('dash');
+}
+
+function deleteTrade(id) {
+  if (!confirm('Delete this trade?')) return;
+  trades = trades.filter(t => t.id !== id);
+  persist(); renderDash(); renderLog();
+}
+
+function editTrade(id) {
+  const t = trades.find(x => x.id === id); if (!t) return;
+  editId = id;
+  document.getElementById('fh').textContent = 'Edit trade';
+  document.getElementById('fd').value = t.date;
+  document.getElementById('fi').value = t.instr;
+  document.getElementById('frr').value = t.rr || '';
+  document.getElementById('frisk').value = t.risk || '';
+  document.getElementById('fpnl').value = t.pnl || '';
+  document.getElementById('fnotes').value = t.notes || '';
+  setOC(t.outcome); imgData = t.img || '';
+  if (imgData) {
+    document.getElementById('ipreview').src = imgData;
+    document.getElementById('ipreview').style.display = 'block';
+    document.getElementById('ulbl').textContent = 'Screenshot loaded';
+  }
+  showSection('new'); document.getElementById('nt-new').classList.add('active');
+}
+
+function toggleDetail(id) { const el = document.getElementById('td-' + id); if (el) el.classList.toggle('open'); }
+
+function persist() { localStorage.setItem('tradejournal_v1', JSON.stringify(trades)); }
+
+/* ── Export / Import ────────────────────────────────────── */
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(trades, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'trades-' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+}
+
+function importJSON(inp) {
+  const f = inp.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error('Invalid format');
+      if (confirm('This will merge ' + imported.length + ' trades with your existing ' + trades.length + ' trades. Continue?')) {
+        const ids = new Set(trades.map(t => t.id));
+        imported.forEach(t => { if (!ids.has(t.id)) trades.push(t); });
+        trades.sort((a, b) => b.date.localeCompare(a.date));
+        persist(); renderDash();
+      }
+    } catch { alert('Invalid JSON file.'); }
+    inp.value = '';
+  };
+  r.readAsText(f);
+}
+
+/* ── Stats calculation ──────────────────────────────────── */
+function calcStats() {
+  const total = trades.length;
+  const wins = trades.filter(t => t.outcome === 'win');
+  const losses = trades.filter(t => t.outcome === 'loss');
+  const bes = trades.filter(t => t.outcome === 'be');
+  const winPct = total ? (wins.length / total) * 100 : 0;
+  const totalPnl = trades.reduce((a, t) => a + t.pnl, 0);
+  const grossWin = wins.reduce((a, t) => a + Math.max(0, t.pnl), 0);
+  const grossLoss = Math.abs(losses.reduce((a, t) => a + Math.min(0, t.pnl), 0));
+  const profitFactor = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? Infinity : 0;
+  const avgWin = wins.length ? grossWin / wins.length : 0;
+  const avgLoss = losses.length ? grossLoss / losses.length : 0;
+  const rrTrades = trades.filter(t => t.rr > 0);
+  const avgRr = rrTrades.length ? rrTrades.reduce((a, t) => a + t.rr, 0) / rrTrades.length : 0;
+  const dayMap = {};
+  trades.forEach(t => { if (!dayMap[t.date]) dayMap[t.date] = 0; dayMap[t.date] += t.pnl; });
+  const bestDay = Object.values(dayMap).length ? Math.max(...Object.values(dayMap)) : 0;
+  const bestDayPct = totalPnl > 0 ? (bestDay / totalPnl) * 100 : 0;
+  return { total, wins: wins.length, losses: losses.length, bes: bes.length, winPct, totalPnl, grossWin, grossLoss, profitFactor, avgWin, avgLoss, avgRr, bestDayPct };
+}
+
+/* ── Charts ─────────────────────────────────────────────── */
+function drawGauge(id, winPct) {
+  const canvas = document.getElementById(id); if (!canvas) return;
+  if (gaugeChart) { gaugeChart.destroy(); gaugeChart = null; }
+  const p = Math.min(Math.max(winPct / 100, 0), 1);
+  gaugeChart = new Chart(canvas, {
+    type: 'doughnut',
+    data: { datasets: [{ data: [p, 1 - p], backgroundColor: ['#22c55e', '#ef4444'], borderWidth: 0, circumference: 180, rotation: 270 }] },
+    options: { responsive: false, cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 600 } }
+  });
+}
+
+function drawDonut(id, gw, gl) {
+  const canvas = document.getElementById(id); if (!canvas) return;
+  if (donutChart) { donutChart.destroy(); donutChart = null; }
+  const total = gw + gl || 1;
+  donutChart = new Chart(canvas, {
+    type: 'doughnut',
+    data: { datasets: [{ data: [gw / total, gl / total], backgroundColor: ['#22c55e', '#ef4444'], borderWidth: 0 }] },
+    options: { responsive: false, cutout: '65%', plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 600 } }
+  });
+}
+
+/* ── Stat cards HTML ────────────────────────────────────── */
+function renderStatCards(s) {
+  const fmt = v => v.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+  const pnlStr = (s.totalPnl >= 0 ? '+' : '') + fmt(s.totalPnl);
+  const pfStr = s.profitFactor === Infinity ? '∞' : s.profitFactor.toFixed(2);
+  return `
+  <div class="stat-card">
+    <div class="stat-label">Total P&L <span class="info-icon" title="Sum of all trade profits and losses">?</span></div>
+    <div class="stat-main ${s.totalPnl >= 0 ? 'green' : 'red'}">${pnlStr}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Trade Win % <span class="info-icon" title="Percentage of winning trades">?</span></div>
+    <div class="card-row">
+      <div>
+        <div class="stat-main">${s.winPct.toFixed(2)}%</div>
+        <div class="stat-sub" style="margin-top:4px">${s.wins} wins &middot; ${s.losses} losses</div>
+      </div>
+      <div class="gauge-wrap">
+        <canvas id="gauge-chart" width="90" height="50" role="img" aria-label="Semicircle gauge showing ${s.winPct.toFixed(0)}% win rate in green vs red"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Avg Win / Avg Loss <span class="info-icon" title="Average winning trade vs average losing trade">?</span></div>
+    <div class="stat-main">${s.avgRr.toFixed(2)}</div>
+    <div class="bar-container"><div class="bar-fill" style="width:${Math.min(s.winPct, 100)}%"></div></div>
+    <div class="avgwin-row">
+      <div class="avgwin-item"><div class="avgwin-val green">+$${s.avgWin.toFixed(2)}</div><div class="avgwin-lbl">Avg win</div></div>
+      <div class="avgwin-item"><div class="avgwin-val red">-$${s.avgLoss.toFixed(2)}</div><div class="avgwin-lbl">Avg loss</div></div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Day Win % <span class="info-icon" title="Percentage of profitable trading days">?</span></div>
+    <div class="stat-main muted">${s.total === 0 ? 'No trades' : s.winPct.toFixed(2) + '%'}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Profit factor <span class="info-icon" title="Gross profit divided by gross loss">?</span></div>
+    <div class="card-row">
+      <div>
+        <div class="stat-main">${pfStr}</div>
+        <div class="donut-labels" style="margin-top:8px">
+          <div class="donut-lbl"><div class="donut-dot" style="background:#22c55e"></div><span style="color:#22c55e">+$${s.grossWin.toFixed(2)}</span></div>
+          <div class="donut-lbl"><div class="donut-dot" style="background:#ef4444"></div><span style="color:#ef4444">-$${s.grossLoss.toFixed(2)}</span></div>
+        </div>
+      </div>
+      <div class="gauge-wrap">
+        <canvas id="donut-chart" width="80" height="80" role="img" aria-label="Donut chart showing gross profit vs gross loss ratio"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Best day % of total profit <span class="info-icon" title="Your best single day as a % of total profit">?</span></div>
+    <div class="stat-main">${s.bestDayPct.toFixed(2)}%</div>
+  </div>`;
+}
+
+/* ── Trade card HTML ────────────────────────────────────── */
+function tradeHTML(t) {
+  const sign = t.pnl >= 0 ? '+' : '';
+  const pc = t.pnl > 0 ? 'pos' : t.pnl < 0 ? 'neg' : '';
+  const outcomeLabel = t.outcome === 'be' ? 'Breakeven' : t.outcome.charAt(0).toUpperCase() + t.outcome.slice(1);
+  return `<div>
+    <div class="trade-row" onclick="toggleDetail('${t.id}')">
+      <div class="t-date">${t.date}</div>
+      <div><div class="t-instr">${t.instr}</div><div class="t-sub">${t.rr ? 'RR ' + t.rr : ''}</div></div>
+      <span class="badge ${t.outcome}">${outcomeLabel}</span>
+      <div class="t-rr">${t.rr ? t.rr + 'R' : ''}</div>
+      <div class="t-pnl ${pc}">${t.pnl !== 0 ? sign + '$' + Math.abs(t.pnl).toFixed(2) : '—'}</div>
+    </div>
+    <div class="trade-detail" id="td-${t.id}">
+      <div class="detail-row">
+        <div class="d-item"><label>Risk</label><span>${t.risk ? '$' + t.risk : '—'}</span></div>
+        <div class="d-item"><label>RR</label><span>${t.rr || '—'}</span></div>
+        <div class="d-item"><label>P&L</label><span class="${pc}">${t.pnl !== 0 ? sign + '$' + Math.abs(t.pnl).toFixed(2) : '—'}</span></div>
+      </div>
+      ${t.notes ? `<div class="d-notes">${t.notes}</div>` : ''}
+      ${t.img ? `<img class="d-img" src="${t.img}" alt="Trade chart screenshot">` : ''}
+      <div class="act-row">
+        <button class="act-btn" onclick="editTrade('${t.id}')">Edit</button>
+        <button class="act-btn del" onclick="deleteTrade('${t.id}')">Delete</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ── Calendar ───────────────────────────────────────────── */
+function changeMonth(d) {
+  calMonth += d;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  else if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+function goToday() { calYear = new Date().getFullYear(); calMonth = new Date().getMonth(); renderCalendar(); }
+
+function renderCalendar() {
+  const fullMonths = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('cal-month-label').textContent = fullMonths[calMonth] + ' ' + calYear;
+
+  const dayMap = {};
+  trades.forEach(t => {
+    if (!dayMap[t.date]) dayMap[t.date] = { pnl: 0, count: 0 };
+    dayMap[t.date].pnl += t.pnl;
+    dayMap[t.date].count++;
+  });
+
+  let monthPnl = 0;
+  Object.keys(dayMap).forEach(d => {
+    const [y, m] = d.split('-').map(Number);
+    if (y === calYear && m - 1 === calMonth) monthPnl += dayMap[d].pnl;
+  });
+
+  const mpEl = document.getElementById('monthly-pnl-val');
+  const sign = monthPnl >= 0 ? '+' : '';
+  mpEl.textContent = sign + '$' + Math.abs(monthPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  mpEl.className = 'pnl-val ' + (monthPnl > 0 ? 'green' : monthPnl < 0 ? 'red' : '');
+
+  const maxAbsPnl = Math.max(...Object.values(dayMap).map(d => Math.abs(d.pnl)), 1);
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const daysInPrev = new Date(calYear, calMonth, 0).getDate();
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const dows = ['Su','Mo','Tu','We','Th','Fr','Sa','Week'];
+  let html = dows.map(d => `<div class="cal-dow${d === 'Week' ? ' week-col' : ''}">${d}</div>`).join('');
+
+  let cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push({ day: daysInPrev - firstDay + 1 + i, cur: false });
+  for (let i = 1; i <= daysInMonth; i++) cells.push({ day: i, cur: true });
+  const rem = (7 - (cells.length % 7)) % 7;
+  for (let i = 1; i <= rem; i++) cells.push({ day: i, cur: false });
+
+  let weekNum = 1;
+  for (let ci = 0; ci < cells.length; ci += 7) {
+    const week = cells.slice(ci, ci + 7);
+    let weekPnl = 0, weekCount = 0;
+    week.forEach(c => {
+      if (!c.cur) return;
+      const key = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(c.day).padStart(2, '0')}`;
+      if (dayMap[key]) { weekPnl += dayMap[key].pnl; weekCount += dayMap[key].count; }
+    });
+
+    week.forEach(c => {
+      const key = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(c.day).padStart(2, '0')}`;
+      const data = c.cur && dayMap[key] ? dayMap[key] : null;
+      const isToday = c.cur && key === todayStr;
+      const intensity = data ? Math.min(Math.abs(data.pnl) / maxAbsPnl, 1) : 0;
+      const strongClass = intensity > 0.5 ? ' strong' : '';
+      let cls = 'cal-cell';
+      if (!c.cur) cls += ' other-month';
+      if (isToday) cls += ' today-cell';
+      if (data && data.pnl > 0) cls += ' profit-cell' + strongClass;
+      if (data && data.pnl < 0) cls += ' loss-cell' + strongClass;
+
+      const dayNum = isToday
+        ? `<div class="cal-day-num">${c.day}</div>`
+        : `<div class="cal-day-num" style="color:#4a5568">${c.day}</div>`;
+
+      let inner = dayNum;
+      if (data) {
+        const ps = data.pnl >= 0 ? '+' : '';
+        const pc = data.pnl > 0 ? 'green' : 'red';
+        inner += `<div class="cal-pnl ${pc}">${ps}$${Math.abs(data.pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
+        inner += `<div class="cal-count">${data.count} trade${data.count !== 1 ? 's' : ''}</div>`;
+      }
+      html += `<div class="${cls}">${inner}</div>`;
+    });
+
+    const wpc = weekPnl > 0 ? 'green' : weekPnl < 0 ? 'red' : 'zero';
+    const wps = weekPnl >= 0 ? '+' : '';
+    html += `<div class="cal-cell week-summary">
+      <div class="week-label">Week ${weekNum}</div>
+      <div class="week-pnl ${wpc}">${wps}$${Math.abs(weekPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+      <div class="week-trades">${weekCount} trade${weekCount !== 1 ? 's' : ''}</div>
+    </div>`;
+    weekNum++;
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+}
+
+/* ── Render functions ───────────────────────────────────── */
+function renderDash() {
+  const s = calcStats();
+  document.getElementById('stats-grid').innerHTML = renderStatCards(s);
+  setTimeout(() => { drawGauge('gauge-chart', s.winPct); drawDonut('donut-chart', s.grossWin, s.grossLoss); }, 60);
+  const rec = trades.slice(0, 5);
+  document.getElementById('recent-trades').innerHTML = rec.length
+    ? rec.map(tradeHTML).join('')
+    : '<div class="empty-state">No trades yet. Click "+ Add trade" to get started.</div>';
+  renderCalendar();
+}
+
+function renderLog() {
+  document.getElementById('all-trades').innerHTML = trades.length
+    ? trades.map(tradeHTML).join('')
+    : '<div class="empty-state">No trades logged yet.</div>';
+}
+
+/* ── Init ───────────────────────────────────────────────── */
+document.getElementById('fd').value = new Date().toISOString().split('T')[0];
+renderDash();
+</script>
+</body>
+</html>
